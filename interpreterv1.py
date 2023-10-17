@@ -12,46 +12,48 @@ class Interpreter(InterpreterBase):
     def run(self, program):
         # program: list of strings we want to parse through
         parsed = parse_program(program)
+        # program node
+
+        # set up variables
         self.variables = dict()
         # turn into AST
 
-        for node in parsed:
-            if(node.elem_type == "program"):
-                #parseProgramNode...
-                funcs = node.dict['functions'] # for now, this is just the main func
-                break
+        funcs = parsed.dict['functions'] # get funcs
 
         foundMain = False
         for func in funcs:
             if func.dict['name'] == 'main':
                 foundMain = True
-            self.run_func(func)
-        super().error(
-        ErrorType.NAME_ERROR,
-        "No main() function was found",
-    )
+            self.run_func(func) # run the functions
+            # in the future, we only run main and set up the other functions, so we can run when needed
+        
+        if not foundMain:
+            super().error(
+            ErrorType.NAME_ERROR,
+            "No main() function was found",
+        )
 
     def run_func(self, func):
         funcName = func.dict['name']
         statements = func.dict['statements']
 
         for statement in statements:
-            self.run_statement(self, statement)
+            self.run_statement(statement)
 
 
     
     def run_statement(self, statement):
         if statement.elem_type == '=':
             # assignment
-            self.do_assignment(self, statement)
+            self.do_assignment(statement)
         elif statement.elem_type == 'fcall':
             # function
-            self.evaluate_function(self, statement)
+            self.evaluate_function(statement)
 
     def do_assignment(self, statement):
         varName = statement.dict['name']
         expression = statement.dict['expression']
-        self.variables[varName] = self.get_value(self, expression)
+        self.variables[varName] = self.evaluate_node(expression)
 
         # if(expression.elem_type == "int" or expression.elem_type == "string"): # value node
         #     self.variables[varName] = expression.dict['val']
@@ -64,22 +66,46 @@ class Interpreter(InterpreterBase):
 
     
     def evaluate_function(self, func):
-        funcName = func['name']
+        funcName = func.dict['name']
         if funcName == "print":
-            str = ""
-            for s in func['args']:
-                str += 
+            output_str = ""
+            for s in func.dict['args']:
+                temp_str = self.evaluate_node(s)
+                try:
+                    output_str += str(temp_str)
+                except:
+                    super().error(
+                    ErrorType.TYPE_ERROR,
+                    "Incompatible types for arithmetic operation",
+                )
+            super().output(output_str)
+
         
-        if funcName == "inputi":
-            if len(func['args']) > 1:
+        elif funcName == "inputi":
+            if len(func.dict['args']) > 1:
                 super().error(
                 ErrorType.NAME_ERROR,
                 f"No inputi() function found that takes > 1 parameter",
             )
+            if len(func.dict['args']) == 1:
+                output_str = self.evaluate_node(func.dict['args'][0])
+                super().output(output_str)
+
+            inputInt = super().get_input()
+            inputInt = int(inputInt)
+
+            return inputInt
+        
+        else:
+                super().error(
+                ErrorType.NAME_ERROR,
+                "Undefined function",
+            )
+            
         
 
 
-    def get_value(self, node): # This function will get the value from a value/variable/expression node
+    def evaluate_node(self, node): # This function will get the value from a value/variable/expression node
         if(node.elem_type == "int" or node.elem_type == "string"): # value node
             return node.dict['val']
 
@@ -96,20 +122,20 @@ class Interpreter(InterpreterBase):
             type = node.elem_type
 
             if type == '+': #binary operation
-                op1 = node.dict['op1']
-                op2 = node.dict['op2']
+                op1 = self.evaluate_node(node.dict['op1'])
+                op2 = self.evaluate_node(node.dict['op2'])
                 try:
-                    return self.getValue(self, op1) + self.getValue(self, op2)
+                    return op1 + op2
                 except:
                     super().error(
                     ErrorType.TYPE_ERROR,
                     "Incompatible types for arithmetic operation",
                 )
             elif type == '-':
-                op1 = node.dict['op1']
-                op2 = node.dict['op2']
+                op1 = self.evaluate_node(node.dict['op1'])
+                op2 = self.evaluate_node(node.dict['op2'])
                 try:
-                    return self.getValue(self, op1) - self.getValue(self, op2)
+                    return op1 - op2
                 except:
                     super().error(
                     ErrorType.TYPE_ERROR,
@@ -117,14 +143,27 @@ class Interpreter(InterpreterBase):
                 )
             
             else:
-                return self.evaluate_function(self, node)
+                return self.evaluate_function(node) # should be result of inputi
 
            
                
 
 
     
+def main():
+    interpreter = Interpreter()
+    program1 = """func main() {
+    x = 6;
+    y = 3;
+    print(4+inputi(2));
+}
+"""
 
+    interpreter.run(program1)
+
+
+if __name__ == '__main__':
+    main()
         
         
 
